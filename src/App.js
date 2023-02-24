@@ -1,54 +1,95 @@
-import React from 'react';
-import './index.css'
-import {SelectPicker} from 'rsuite';
-import  ReactDOM  from 'react';
-import {fetchMessages} from '/AutoEmailBackup/API.js';
-class Inbox extends React.Component {
-  state = {
-    accountId: '',
-    messages: [],
-  };
+import React, { Component } from 'react';
+import './App.css';
+import { SelectPicker } from 'rsuite';
 
-  async componentDidMount() {
-    const messages = await fetchMessages(this.state.accountId);
-    this.setState({ messages });
+
+class App extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      accounts: [],
+      selectedAccountId: null,
+      emails: [],
+    };
   }
 
-  handleAccountChange = async (value) => {
-    const messages = await fetchMessages(value);
-    this.setState({ accountId: value, messages });
-  };
+  componentDidMount() {
+    this.fetchAccounts();
+  }
+  
+  async fetchAccounts() {
+    console.log("fetching accounts");
+    const url = `/accounts`;
+    const response = await fetch(url);
+    const data = await response.json();
+    console.log("accounts data:", data);
+    this.setState({ accounts: data.data });
+  }
 
-render() {
-  return (
-    <div className="inbox">
-      <div className="inbox-header">
-        <h1>Odczytywanie Wiadomości z bazy danch</h1>
+  async fetchEmails(accountId) {
+    if (!accountId) {
+      return;
+    }
+  
+    try {
+      console.log("fetching emails for account ID:", accountId);
+      const url = `/emails?account_id=${accountId}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Error fetching email data: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log("email data:", data);
+      this.setState({ emails: data.data });
+    } catch (error) {
+      console.error(error);
+      this.setState({ emails: [] });
+    }
+  }
+
+  handleAccountChange = (value) => {
+    this.setState({ selectedAccountId: value });
+    this.fetchEmails(value);
+  }
+
+  
+
+  render() {
+    const { accounts, selectedAccountId, emails } = this.state;
+
+    if (emails === null) {
+      return <div>Probably empty..</div>;
+    }
+
+    return (
+      <div className="App">
+        <h1>Select an account ID:</h1>
         <SelectPicker
-          data={accountOptions}
-          value={this.state.accountId}
+          data={accounts}
+          value={selectedAccountId}
           onChange={this.handleAccountChange}
+          searchable={false}
+          style={{ width: 300 }}
+          placeholder="Select an account ID"
+          renderMenuItem={(label, item) => {
+            return (
+              <div>
+                {item.id}: {item.login}
+              </div>
+            );
+          }}
         />
-      </div>
-      <div className="inbox-messages">
-        {this.state.messages.map((message) => (
-          <div className="inbox-message" key={message._id}>
-            <div className="inbox-message-header">
-              <h2>{message.title}</h2>
-              <p>Wiadomość od: {message.from}</p>
-            </div>
-            <div className="inbox-message-body">
-              <p>{message.body}</p>
-              {message.attachment && <p>Załącznik: {message.attachment}</p>}
-            </div>
-          </div>
+        <h2>Emails:</h2>
+        <ul>
+        {emails.map((email) => (
+          <li key={email}>{email}
+          From: {email.from}, Subject: {email.subject}, Date: {email.datetime}
+          </li>
         ))}
+      </ul>
       </div>
-    </div>
-  );
+    );
+  }
 }
-}
 
-export default Inbox;
-
-
+export default App;
